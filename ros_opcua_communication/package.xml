@@ -18,7 +18,6 @@
 
   <exec_depend>ros_opcua_msgs</exec_depend>
   <exec_depend>ros_opcua_srvs</exec_depend>
-  <exec_depend>ros_opcua_impl_freeopcua</exec_depend>
   <exec_depend>ros_opcua_impl_python_opcua</exec_depend>
 
   <export>
