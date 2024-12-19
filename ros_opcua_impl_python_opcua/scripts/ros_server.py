@@ -34,13 +34,14 @@ def own_rosnode_cleanup():
 
 class ROSServer:
     def __init__(self):
-        self.namespace_ros = rospy.get_param("/rosopcua/namespace")
+        self.namespace_ros = rospy.get_param("/rosopcua/namespace", "")
+        self.server_uri = rospy.get_param("/rosopcua/uri", "opc.tcp://0.0.0.0:21554/")
         self.topicsDict = {}
         self.servicesDict = {}
         self.actionsDict = {}
         rospy.init_node("rosopcua")
         self.server = Server()
-        self.server.set_endpoint("opc.tcp://0.0.0.0:21554/")
+        self.server.set_endpoint(self.server_uri)
         self.server.set_server_name("ROS ua Server")
         self.server.start()
         # setup our own namespaces, this is expected
@@ -57,6 +58,8 @@ class ROSServer:
         topics_object = objects.add_object(idx_topics, "ROS-Topics")
         services_object = objects.add_object(idx_services, "ROS-Services")
         actions_object = objects.add_object(idx_actions, "ROS_Actions")
+        if self.namespace_ros.strip():
+            topics_object = topics_object.add_object(idx_topics, self.namespace_ros)
         while not rospy.is_shutdown():
             # ros_topics starts a lot of publisher/subscribers, might slow everything down quite a bit.
             ros_services.refresh_services(self.namespace_ros, self, self.servicesDict, idx_services, services_object)

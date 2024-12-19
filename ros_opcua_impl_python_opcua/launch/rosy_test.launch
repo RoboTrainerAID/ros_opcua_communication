@@ -1,0 +1,14 @@
+<launch>
+
+    <include file="$(find ros_opcua_impl_python_opcua)/launch/rosopcua.launch" />
+
+<!--    <include ns="rosy_test" file="$(find ipr_helpers)/launch/extract_mobile_robot_base.launch" />  -->
+    
+  <node ns="rosy_test" name="extract_mobile_robot_base" pkg="ipr_helpers" type="extract_mobile_robot_tf">
+    <param name="rate" value="500.0" type="double" />
+    <param name="root_frame" value="odom_combined" />
+    <param name="child_frame" value="base_link" />
+  </node>
+
+
+</launch>
