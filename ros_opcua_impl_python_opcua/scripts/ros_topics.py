@@ -18,7 +18,8 @@ import rostopic
 class OpcUaROSTopic:
     def __init__(self, server, parent, idx, topic_name, topic_type):
         self.server = server
-        self.parent = self.recursive_create_objects(topic_name, idx, parent)
+        #TODO: Check if this works correct without namespace
+        self.parent = parent #self.recursive_create_objects(topic_name, idx, parent)
         self.type_name = topic_type
         self.name = topic_name
         self._nodes = {}
@@ -72,7 +73,8 @@ class OpcUaROSTopic:
                 for index in range(array_size):
                     self._recursive_create_items(parent, idx, topic_name + '[%d]' % index, base_type_str, base_instance)
             else:
-                new_node = _create_node_with_type(parent, idx, topic_name, topic_text, type_name, array_size)
+                # This should be simple data Types but as arrays
+                new_node = _create_node_with_type(parent, idx, topic_name, topic_text, type_name, array_size, is_array=True)
                 self._nodes[topic_name] = new_node
 
         if topic_name in self._nodes and self._nodes[topic_name].get_node_class() == ua.NodeClass.Variable:
@@ -105,17 +107,23 @@ class OpcUaROSTopic:
                 self.update_value(topic_name + '/' + slot_name, getattr(message, slot_name))
 
         elif type(message) in (list, tuple):
-            if (len(message) > 0) and hasattr(message[0], '__slots__'):
-                for index, slot in enumerate(message):
-                    if topic_name + '[%d]' % index in self._nodes:
-                        self.update_value(topic_name + '[%d]' % index, slot)
-                    else:
-                        if topic_name in self._nodes:
-                            base_type_str, _ = _extract_array_info(
-                                self._nodes[topic_name].text(self.type_name))
-                            self._recursive_create_items(self._nodes[topic_name], topic_name + '[%d]' % index,
-                                                         base_type_str,
-                                                         slot, None)
+            if (len(message) > 0):
+                if hasattr(message[0], '__slots__'):
+                    for index, slot in enumerate(message):
+                        if topic_name + '[%d]' % index in self._nodes:
+                            self.update_value(topic_name + '[%d]' % index, slot)
+                        else:
+                            if topic_name in self._nodes:
+                                base_type_str, _ = _extract_array_info(
+                                    self._nodes[topic_name].text(self.type_name))
+                                self._recursive_create_items(self._nodes[topic_name], topic_name + '[%d]' % index,
+                                                            base_type_str,
+                                                            slot, None)
+                # Set value of simple type array
+                #TODO: check if this breaks something and maybe manage it somehow differently
+                else:
+                    self._nodes[topic_name].set_value(repr(message))
+
             # remove obsolete children
             if topic_name in self._nodes:
                 if len(message) < len(self._nodes[topic_name].get_children()):
@@ -212,42 +220,43 @@ def _extract_array_info(type_str):
     return type_str, array_size
 
 
-def _create_node_with_type(parent, idx, topic_name, topic_text, type_name, array_size):
+def _create_node_with_type(parent, idx, topic_name, topic_text, type_name, array_size, is_array=False):
     if '[' in type_name:
         type_name = type_name[:type_name.index('[')]
 
     if type_name == 'bool':
-        dv = ua.Variant(False, ua.VariantType.Boolean)
+        dv = ua.Variant(False, ua.VariantType.Boolean, is_array=is_array)
     elif type_name == 'byte':
-        dv = ua.Variant(0, ua.VariantType.Byte)
+        dv = ua.Variant(0, ua.VariantType.Byte, is_array=is_array)
     elif type_name == 'int':
-        dv = ua.Variant(0, ua.VariantType.Int32)
+        dv = ua.Variant(0, ua.VariantType.Int32, is_array=is_array)
     elif type_name == 'int8':
-        dv = ua.Variant(0, ua.VariantType.SByte)
+        dv = ua.Variant(0, ua.VariantType.SByte, is_array=is_array)
     elif type_name == 'uint8':
-        dv = ua.Variant(0, ua.VariantType.Byte)
+        dv = ua.Variant(0, ua.VariantType.Byte, is_array=is_array)
     elif type_name == 'int16':
-        dv = ua.Variant(0, ua.VariantType.Int16)
+        dv = ua.Variant(0, ua.VariantType.Int16, is_array=is_array)
     elif type_name == 'uint16':
-        dv = ua.Variant(0, ua.VariantType.UInt16)
+        dv = ua.Variant(0, ua.VariantType.UInt16, is_array=is_array)
     elif type_name == 'int32':
-        dv = ua.Variant(0, ua.VariantType.Int32)
+        dv = ua.Variant(0, ua.VariantType.Int32, is_array=is_array)
     elif type_name == 'uint32':
-        dv = ua.Variant(0, ua.VariantType.UInt32)
+        dv = ua.Variant(0, ua.VariantType.UInt32, is_array=is_array)
     elif type_name == 'int64':
-        dv = ua.Variant(0, ua.VariantType.Int64)
+        dv = ua.Variant(0, ua.VariantType.Int64, is_array=is_array)
     elif type_name == 'uint64':
-        dv = ua.Variant(0, ua.VariantType.UInt64)
+        dv = ua.Variant(0, ua.VariantType.UInt64, is_array=is_array)
     elif type_name == 'float' or type_name == 'float32' or type_name == 'float64':
-        dv = ua.Variant(0.0, ua.VariantType.Float)
+        dv = ua.Variant(0.0, ua.VariantType.Float, is_array=is_array)
     elif type_name == 'double':
-        dv = ua.Variant(0.0, ua.VariantType.Double)
+        dv = ua.Variant(0.0, ua.VariantType.Double, is_array=is_array)
     elif type_name == 'string':
-        dv = ua.Variant('', ua.VariantType.String)
+        dv = ua.Variant('', ua.VariantType.String, is_array=is_array)
     else:
         rospy.logerr("can't create node with type" + str(type_name))
         return None
 
+    #TODO: What is this? For what is this used???
     if array_size is not None:
         value = []
         for i in range(array_size):
